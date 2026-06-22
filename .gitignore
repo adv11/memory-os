@@ -1,0 +1,24 @@
+.DS_Store
+
+# Build outputs
+dist/
+build/
+target/
+.next/
+out/
+
+# Dependencies
+node_modules/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+
+# Local IDE and generated tool metadata
+.vscode/
+.github/modernize/
+*.tsbuildinfo
