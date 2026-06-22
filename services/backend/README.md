@@ -28,13 +28,10 @@ Copy the example env file and fill in your real credentials before starting the 
 cp .env.example .env
 ```
 
-Then run the backend with a Java 25 JDK:
+Then run the backend:
 
 ```bash
-export JAVA_HOME=/path/to/your/jdk-25
-mvn spring-boot:run
+cd services/backend && export $(cat .env | xargs) && mvn spring-boot:run
 ```
-
-The backend requires Java 25 for the production target.
 
 See [docs/project/local-development.md](../../docs/project/local-development.md) for the full local setup flow.

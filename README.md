@@ -1,55 +1,41 @@
 # MemoryOS
 
-MemoryOS is a web-based personal knowledge and learning management system for people learning multiple subjects in parallel.
+A personal learning memory system. Capture what you learn, organise it by topic, attach resources, and visualise your knowledge growth.
 
-The product helps users capture daily learning, organize resources, track concepts, visualize knowledge growth, and eventually use AI for revision and memory retention.
+**Start here → [docs/PROJECT.md](docs/PROJECT.md)**
 
-MemoryOS is not a general note-taking app. It is intended to become an AI-powered memory operating system that understands what a user has learned and helps them retain it.
+That file explains what is built, what the words mean, how to run it locally, and where everything lives.
 
-## Current Status
+---
 
-Status: Phase 1 implementation started
+## Quick start
 
-The architecture package has been approved. Phase 1 now focuses on Google authentication, authenticated user identity, and the first frontend shell.
+```bash
+# 1. Start PostgreSQL
+docker compose -f infra/docker/docker-compose.local.yml up -d
 
-See:
+# 2. Configure and run backend (fill in Google credentials in .env first)
+cp services/backend/.env.example services/backend/.env
+cd services/backend && export $(cat .env | xargs) && mvn spring-boot:run
 
-- [Progress](docs/project/progress.md)
-- [TODO](docs/project/todo.md)
-- [Glossary](docs/project/glossary.md)
-- [Local Development](docs/project/local-development.md)
-- [High-Level Architecture](docs/architecture/high-level-architecture.md)
-- [Low-Level Architecture](docs/architecture/low-level-architecture.md)
+# 3. Run frontend (separate terminal)
+cd apps/frontend && npm install && npm run dev
+```
 
-## Initial Stack
+Frontend: http://localhost:3000 — Backend: http://localhost:8080
+
+For Google OAuth setup and full instructions see [docs/project/setup.md](docs/project/setup.md).
+
+---
+
+## Stack
 
 - Frontend: Next.js, TypeScript, Tailwind CSS
-- Backend: Spring Boot 3.x, Java 25, Spring Security, OAuth2 Login
+- Backend: Spring Boot 3.x, Java 25, Spring Security, OAuth2
 - Database: PostgreSQL, Flyway
-- Storage: Google Drive API
-- Graph Visualization: React Flow
+- File storage: Google Drive API (planned)
+- Graph: React Flow (planned)
 
-## Run locally
+## Rule
 
-1. Start PostgreSQL:
-   ```bash
-   docker compose -f infra/docker/docker-compose.local.yml up -d
-   ```
-2. Copy the backend env template and fill in your Google OAuth values:
-   ```bash
-   cp services/backend/.env.example services/backend/.env
-   ```
-3. Start the backend (from the repo root):
-   ```bash
-   cd services/backend && mvn spring-boot:run
-   ```
-4. Start the frontend in another terminal:
-   ```bash
-   cd apps/frontend && npm install && npm run dev
-   ```
-
-## Product Rule
-
-Start simple and ship the core learning capture workflow first.
-
-Do not introduce Neo4j, vector databases, Kafka, Redis, multi-agent systems, LangGraph, or complex AI workflows until real production requirements justify them.
+Start simple. Ship the core learning capture workflow first. Do not add Neo4j, vector databases, Kafka, Redis, or AI pipelines until real production usage justifies them.

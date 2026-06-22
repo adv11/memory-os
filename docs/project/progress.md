@@ -24,14 +24,37 @@ Phase 1: Authentication.
 - Added local development documentation and env examples.
 - Added local PostgreSQL Docker Compose setup.
 - Updated frontend dependency tree to clear npm audit findings.
+- Verified local PostgreSQL Docker Compose starts and backend connects successfully.
+- Flyway V1 migration confirmed applied on first backend startup.
+- Created `docs/PROJECT.md` single start-here project guide.
+- Created `.amazonq/rules/agent-rules.md` AI agent instruction file.
+- Created `docs/explainers/google-auth.md` deep-dive explainer for auth feature.
+- Removed redundant `db/` root directory.
+- Fixed `loginUrl` in frontend `config.ts` (wrong Spring Security path).
+- Added generic exception fallback handler to `GlobalExceptionHandler`.
+- Updated `infra/README.md` to reflect actual Docker Compose setup.
+- Updated `docs/architecture/folder-structure.md` to show current vs planned layout.
+- Created `docs/explainers/README.md` explainers index.
+- Fixed run command across all docs to use `export $(cat .env | xargs) && mvn spring-boot:run`.
+- Added Google OAuth credential setup steps to `local-development.md`.
+- Removed stale `db/migrations/README.md` reference from agent-rules.
+- Consolidated architecture docs: merged high-level-architecture, low-level-architecture, sequence-diagrams, google-drive-integration, knowledge-graph-visualization into single `docs/architecture/architecture.md`.
+- Renamed `api-contracts.md` → `api.md`.
+- Deleted `folder-structure.md` (content merged into PROJECT.md and architecture.md).
+- Renamed `local-development.md` → `setup.md` with clearer step-by-step format.
+- Deleted `implementation-principles.md` (content merged into agent-rules.md).
+- Deleted `glossary.md` (content merged into PROJECT.md).
+- Deleted `docs/product/product-requirements.md` (content merged into PROJECT.md).
+- Rewrote root README.md to be minimal and point to PROJECT.md.
+- Updated ADR 0001 status to accepted and implemented.
+- Added integration test rules and naming conventions to agent-rules.md.
 
 ## In Progress
 
-- Phase 1 local OAuth credential setup and manual browser verification.
+- Phase 1 local OAuth credential setup and manual browser verification (Google credentials not yet configured).
 
 ## Not Started
 
-- Real Google OAuth credentials.
 - Topic management.
 - Learning session management.
 - Resource metadata management.
@@ -52,6 +75,7 @@ Phase 1: Authentication.
 | 2026-06-22 | `npm run typecheck` in `apps/frontend` | Passed. |
 | 2026-06-22 | `npm run build` in `apps/frontend` | Passed. |
 | 2026-06-22 | `npm audit --audit-level=moderate` in `apps/frontend` | Passed: 0 vulnerabilities. |
+| 2026-06-22 | Docker Compose PostgreSQL startup and backend DB connection | Passed: HikariPool connected, Flyway applied V1 migration. |
 
 ## Decision Log
 

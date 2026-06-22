@@ -31,6 +31,11 @@ This file tracks executable work. Keep it synced with implementation so complete
 - [x] Add local PostgreSQL Docker Compose setup.
 - [x] Run backend tests.
 - [x] Run frontend typecheck, build, and audit.
+- [x] Verify local PostgreSQL Docker Compose starts and backend connects.
+- [x] Flyway V1 migration applied and confirmed via `flyway_schema_history`.
+- [x] Create `docs/PROJECT.md` single start-here project guide.
+- [x] Create `.amazonq/rules/agent-rules.md` AI agent instruction file.
+- [x] Create `docs/explainers/google-auth.md` deep-dive explainer.
 - [ ] Configure real Google OAuth credentials locally.
 - [ ] Manually verify browser login flow against local backend/frontend.
 
