@@ -10,7 +10,7 @@ MemoryOS needs to support production-grade growth while staying simple enough to
 
 ## Decision
 
-Use a modular monolith backend with Spring Boot 3.x and Java 21, a Next.js frontend, PostgreSQL with Flyway migrations, and Google Drive for user-owned file storage.
+Use a modular monolith backend with Spring Boot 3.x and Java 25, a Next.js frontend, PostgreSQL with Flyway migrations, and Google Drive for user-owned file storage.
 
 Knowledge graph data will be derived dynamically from relational records in PostgreSQL. React Flow will render the graph on the frontend.
 

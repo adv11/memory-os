@@ -18,7 +18,7 @@ This file tracks executable work. Keep it synced with implementation so complete
 ## Phase 1: Authentication
 
 - [x] Scaffold Spring Boot backend.
-- [x] Configure Java 21, Spring Boot 3.x, Maven.
+- [x] Configure Java 25, Spring Boot 3.x, Maven.
 - [x] Add Spring Security OAuth2 Login.
 - [x] Configure Google OAuth client placeholders.
 - [x] Persist authenticated users.

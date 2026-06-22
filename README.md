@@ -24,10 +24,29 @@ See:
 ## Initial Stack
 
 - Frontend: Next.js, TypeScript, Tailwind CSS
-- Backend: Spring Boot 3.x, Java 21, Spring Security, OAuth2 Login
+- Backend: Spring Boot 3.x, Java 25, Spring Security, OAuth2 Login
 - Database: PostgreSQL, Flyway
 - Storage: Google Drive API
 - Graph Visualization: React Flow
+
+## Run locally
+
+1. Start PostgreSQL:
+   ```bash
+   docker compose -f infra/docker/docker-compose.local.yml up -d
+   ```
+2. Copy the backend env template and fill in your Google OAuth values:
+   ```bash
+   cp services/backend/.env.example services/backend/.env
+   ```
+3. Start the backend (from the repo root):
+   ```bash
+   cd services/backend && mvn spring-boot:run
+   ```
+4. Start the frontend in another terminal:
+   ```bash
+   cd apps/frontend && npm install && npm run dev
+   ```
 
 ## Product Rule
 

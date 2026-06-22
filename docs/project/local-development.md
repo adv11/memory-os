@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Java 21 for backend development.
+- Java 25 for backend development.
 - Maven 3.9+.
 - Node.js 22+.
 - npm 11+.
@@ -29,6 +29,12 @@ Start PostgreSQL:
 docker compose -f infra/docker/docker-compose.local.yml up -d
 ```
 
+Create a local backend env file and set your Google OAuth values:
+
+```bash
+cp services/backend/.env.example services/backend/.env
+```
+
 Run tests:
 
 ```bash
@@ -38,6 +44,7 @@ mvn test
 Run locally:
 
 ```bash
+export JAVA_HOME=/path/to/your/jdk-25
 mvn spring-boot:run
 ```
 
@@ -70,6 +77,8 @@ npm run dev
 ```
 
 The frontend starts on `http://localhost:3000`.
+
+If you want to verify the frontend without the backend, the dashboard page will show the sign-in state but the authenticated profile call still requires the backend to be running.
 
 ## Google OAuth Redirect
 

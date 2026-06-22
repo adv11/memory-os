@@ -12,7 +12,7 @@ Phase 1: Authentication.
 - Captured product vision, target users, stack, and V1 scope.
 - Defined architecture docs required before implementation.
 - Architecture package approved for V1.
-- Scaffolded Spring Boot backend with Java 21 target and Maven.
+- Scaffolded Spring Boot backend with Java 25 target and Maven.
 - Added Spring Security OAuth2 Login configuration for Google.
 - Added authenticated user provisioning and persistence.
 - Added `/api/v1/me` current-user endpoint.
@@ -48,7 +48,7 @@ Phase 1: Authentication.
 
 | Date | Check | Result |
 | --- | --- | --- |
-| 2026-06-22 | `mvn test` in `services/backend` | Passed: 2 tests. |
+| 2026-06-22 | `mvn clean test` in `services/backend` with JDK 25 | Passed: 2 tests, 0 failures. |
 | 2026-06-22 | `npm run typecheck` in `apps/frontend` | Passed. |
 | 2026-06-22 | `npm run build` in `apps/frontend` | Passed. |
 | 2026-06-22 | `npm audit --audit-level=moderate` in `apps/frontend` | Passed: 0 vulnerabilities. |
