@@ -17,9 +17,9 @@ This file tracks executable work. Keep it synced with implementation so complete
 
 ## Phase 1: Authentication
 
-- [x] Scaffold Spring Boot backend.
-- [x] Configure Java 25, Spring Boot 3.x, Maven.
-- [x] Add Spring Security OAuth2 Login.
+- [x] Scaffold Python/FastAPI backend.
+- [x] Configure Python 3.9+, FastAPI, SQLAlchemy async.
+- [x] Add Google OAuth2 login via Authlib.
 - [x] Configure Google OAuth client placeholders.
 - [x] Persist authenticated users.
 - [x] Add authenticated user profile endpoint.
@@ -32,10 +32,12 @@ This file tracks executable work. Keep it synced with implementation so complete
 - [x] Run backend tests.
 - [x] Run frontend typecheck, build, and audit.
 - [x] Verify local PostgreSQL Docker Compose starts and backend connects.
-- [x] Flyway V1 migration applied and confirmed via `flyway_schema_history`.
+- [x] Add database migration `V1__create_identity.sql`.
 - [x] Create `docs/PROJECT.md` single start-here project guide.
 - [x] Create `.amazonq/rules/agent-rules.md` AI agent instruction file.
 - [x] Create `docs/explainers/google-auth.md` deep-dive explainer.
+- [x] Migrate backend to Python/FastAPI (all behaviour preserved, 7 tests passing).
+- [x] Verify Python backend tests pass (7/7).
 - [ ] Configure real Google OAuth credentials locally.
 - [ ] Manually verify browser login flow against local backend/frontend.
 

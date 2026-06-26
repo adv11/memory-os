@@ -12,9 +12,9 @@ We chose Google OAuth for a few reasons:
 - No password management. No forgot-password flows, no hashing, no breach risk from a password database.
 - Users already trust Google with their identity.
 - It connects naturally with Google Drive, which is planned for file storage in Phase 4.
-- Spring Boot has first-class support for OAuth2 Login, so very little custom code is needed.
+- The backend is Python/FastAPI. We use Authlib, which has first-class support for OAuth2 with Starlette/FastAPI. Very little custom code is needed.
 
-We use Spring Security's built-in OAuth2 Login rather than implementing the OAuth flow ourselves. Spring handles the redirect, the token exchange, and the user profile fetch. We only hook in at the end to save the user to our database.
+We use Starlette's `SessionMiddleware` to store the logged-in user's ID in a server-side encrypted cookie (`session`).
 
 ---
 
@@ -24,102 +24,87 @@ We use Spring Security's built-in OAuth2 Login rather than implementing the OAut
 
 The frontend has a login button that links to:
 ```
-http://localhost:8080/login/oauth2/authorization/google
+http://localhost:8080/auth/google
 ```
-This is a Spring Security built-in URL. When hit, Spring redirects the user to Google's OAuth consent screen.
 
 File: `apps/frontend/src/features/auth/LoginButton.tsx`
+URL configured in: `apps/frontend/src/lib/config.ts`
 
-### Step 2: User consents on Google
+### Step 2: Backend redirects to Google
 
-Google shows the user a consent screen asking for permission to share their name, email, and profile. The user clicks "Allow".
+The `google_login` function in `router.py` uses Authlib to build a Google OAuth redirect URL and sends the user there.
 
-### Step 3: Google redirects back to the backend
+File: `services/backend-python/app/identity/router.py`
 
-Google calls our backend at:
+### Step 3: User consents on Google
+
+Google shows the consent screen asking for name, email, and profile access.
+
+### Step 4: Google redirects back
+
+Google calls:
 ```
-http://localhost:8080/login/oauth2/code/google
-```
-This redirect URI must be registered in Google Cloud Console. Spring Security handles this endpoint automatically.
-
-### Step 4: Spring fetches the user profile
-
-Spring exchanges the authorization code for tokens and then calls Google's userinfo endpoint to get the user's `sub` (Google ID), `email`, and `name`.
-
-### Step 5: Our code runs — user provisioning
-
-After Spring completes the OAuth handshake, it calls our custom success handler. This is wired in `SecurityConfig`:
-
-```java
-.oauth2Login(oauth -> oauth
-    .successHandler((request, response, authentication) -> {
-        provisioningService.provision(authentication);
-        response.sendRedirect(webProperties.getSuccessUrl());
-    })
-)
+http://localhost:8080/auth/google/callback
 ```
 
-File: `services/backend/src/main/java/com/memoryos/common/security/SecurityConfig.java`
+This URI must be registered in Google Cloud Console exactly as shown.
 
-The `provision` method in `OAuthUserProvisioningService`:
-1. Extracts `sub`, `email`, and `name` from the Google profile.
-2. Looks up the user by `google_id` in the database.
-3. If found: updates `email` and `name` (they may have changed on Google).
-4. If not found: creates a new `AppUser` with a fresh UUID.
-5. Saves and returns the user.
+### Step 5: Backend exchanges code for tokens and fetches profile
 
-File: `services/backend/src/main/java/com/memoryos/identity/service/OAuthUserProvisioningService.java`
+The `google_callback` function in `router.py`:
+1. Calls `oauth.google.authorize_access_token(request)` — exchanges the authorization code for tokens and returns the user's profile (`userinfo`).
+2. Extracts `sub` (Google's permanent user ID), `email`, and `name`.
+3. Calls `repository.upsert_from_google()` to create or update the user in PostgreSQL.
+4. Stores `user.id` in the session: `request.session["user_id"] = str(user.id)`.
+5. Redirects to `http://localhost:3000/dashboard`.
 
-### Step 6: Session is created
+### Step 6: Session cookie is set
 
-Spring Security creates a server-side session and sends a session cookie (`JSESSIONID`) to the browser. All future requests from this browser carry that cookie and are considered authenticated.
+Starlette's `SessionMiddleware` signs and encrypts the session data using `SECRET_KEY` and stores it in a cookie named `session`. All future requests from this browser carry that cookie.
 
-### Step 7: User lands on the dashboard
+### Step 7: Frontend fetches current user
 
-The success handler redirects to `http://localhost:3000/dashboard` (configurable via `MEMORYOS_WEB_SUCCESS_URL`).
-
-### Step 8: Frontend fetches the current user
-
-The dashboard calls `GET /api/v1/me` to get the logged-in user's details.
-
-File: `services/backend/src/main/java/com/memoryos/identity/controller/MeController.java`
-
-The `MeController` calls `AuthenticatedUserService.requireCurrentUser()` which:
-1. Reads the `Authentication` object from the current Spring Security context.
-2. Extracts the Google `sub` (Google ID) from the OAuth2 principal.
-3. Looks up the `AppUser` in the database by that Google ID.
-4. Returns it, or throws if somehow the user is authenticated but not in the database.
-
-File: `services/backend/src/main/java/com/memoryos/identity/service/AuthenticatedUserService.java`
+The dashboard calls `GET /api/v1/me`. The `me` function in `router.py` calls `require_current_user`, which:
+1. Reads `user_id` from the session cookie.
+2. Looks up the `AppUser` in the database by that ID.
+3. Returns it, or raises 401 if not found.
 
 ---
 
 ## Database
 
-One table is involved:
+One table:
 
 ```sql
 app_user (
-  id           UUID PRIMARY KEY,        -- our internal ID, not Google's
-  google_id    VARCHAR(128) UNIQUE,      -- Google's "sub" claim, stable forever
-  email        VARCHAR(320) UNIQUE,      -- can change, updated on every login
-  name         VARCHAR(200),             -- can change, updated on every login
-  created_at   TIMESTAMPTZ,
-  updated_at   TIMESTAMPTZ
+  id           UUID PRIMARY KEY,
+  google_id    VARCHAR(128) UNIQUE NOT NULL,   -- Google's "sub", permanent
+  email        VARCHAR(320) UNIQUE NOT NULL,   -- updated on every login
+  name         VARCHAR(200) NOT NULL,          -- updated on every login
+  created_at   TIMESTAMPTZ NOT NULL,
+  updated_at   TIMESTAMPTZ NOT NULL
 )
 ```
 
-Why `google_id` as the lookup key instead of email?
-- Email can change. Google's `sub` claim is a permanent, stable identifier for a Google account. We use that to find returning users, then update their email if it changed.
+Why `google_id` as the lookup key? Email can change. Google's `sub` is permanent for a Google account.
 
-Migration file: `services/backend/src/main/resources/db/migration/V1__create_identity.sql`
+Migration: `services/backend-python/migrations/` — the `app_user` table was created by the initial SQL migration `V1__create_identity.sql`.
+
+SQLAlchemy model: `services/backend-python/app/identity/model.py`
+
+All queries: `services/backend-python/app/identity/repository.py`
 
 ---
 
 ## API
 
-### GET /api/v1/me
+### GET /auth/google
+Starts Google login. Redirects to Google's consent screen. No body.
 
+### GET /auth/google/callback
+Google redirects here after consent. Not called directly by the frontend.
+
+### GET /api/v1/me
 Returns the authenticated user's profile. Requires a valid session cookie.
 
 ```json
@@ -130,65 +115,66 @@ Returns the authenticated user's profile. Requires a valid session cookie.
 }
 ```
 
-Returns `401 Unauthorized` if not logged in.
+Returns `401` if not logged in.
 
-### POST /logout
-
-Clears the session and redirects to `http://localhost:3000` (configurable via `MEMORYOS_WEB_LOGOUT_SUCCESS_URL`). Invalidates the `JSESSIONID` cookie.
+### GET /logout or POST /logout
+Clears the session cookie and redirects to `http://localhost:3000`.
 
 ---
 
 ## Configuration
 
-All values are in `services/backend/.env` (copy from `.env.example`):
+All values in `services/backend-python/.env`:
 
 | Variable | What it is |
 |---|---|
-| `GOOGLE_CLIENT_ID` | From Google Cloud Console OAuth credentials |
-| `GOOGLE_CLIENT_SECRET` | From Google Cloud Console OAuth credentials |
-| `MEMORYOS_WEB_SUCCESS_URL` | Where to redirect after login (default: `http://localhost:3000/dashboard`) |
-| `MEMORYOS_WEB_LOGOUT_SUCCESS_URL` | Where to redirect after logout (default: `http://localhost:3000`) |
+| `GOOGLE_CLIENT_ID` | From Google Cloud Console |
+| `GOOGLE_CLIENT_SECRET` | From Google Cloud Console |
+| `SECRET_KEY` | Any long random string — signs the session cookie |
+| `WEB_SUCCESS_URL` | Where to redirect after login (default: `http://localhost:3000/dashboard`) |
+| `WEB_LOGOUT_SUCCESS_URL` | Where to redirect after logout (default: `http://localhost:3000`) |
 
-These map to `application.yml`:
-```yaml
-spring.security.oauth2.client.registration.google.client-id: ${GOOGLE_CLIENT_ID}
-spring.security.oauth2.client.registration.google.client-secret: ${GOOGLE_CLIENT_SECRET}
+Generate a secret key:
+```bash
+python3 -c "import secrets; print(secrets.token_hex(32))"
 ```
 
 ---
 
 ## Tests
 
-Two tests in `OAuthUserProvisioningServiceTest`:
+File: `services/backend-python/tests/test_identity.py`
 
-1. `createsUserFromGoogleProfile` — first-time login creates a user in the database.
-2. `updatesExistingUserProfile` — second login with changed email/name updates the record and does not create a duplicate.
+| Test | What it covers |
+|---|---|
+| `test_creates_user_on_first_login` | First login creates a user row |
+| `test_updates_profile_on_subsequent_login` | Second login updates email/name, no duplicate row |
+| `test_find_by_id_returns_none_for_unknown` | Unknown ID returns None |
+| `test_find_by_google_id_returns_none_for_unknown` | Unknown google_id returns None |
+| `test_two_different_users_are_separate_rows` | Two google_ids = two rows |
+| `test_create_then_find_by_id` | Integration: create then fetch by ID |
+| `test_upsert_is_idempotent` | Three upserts with same google_id = one row, last name wins |
 
-Tests use `@DataJpaTest` with H2 in-memory database. No real Google call is made — the test constructs a fake `OAuth2User` principal directly.
-
-File: `services/backend/src/test/java/com/memoryos/identity/service/OAuthUserProvisioningServiceTest.java`
-
-Run them with:
+Run:
 ```bash
-cd services/backend && mvn test
+cd services/backend-python && ENV_FILE=.env.test python -m pytest tests/ -v
 ```
+
+Tests use SQLite in-memory. No real PostgreSQL or Google credentials needed.
 
 ---
 
 ## What to watch out for
 
-**The `.env` file must be loaded before running.** Spring Boot does not automatically load `.env` files. Use:
-```bash
-export $(cat .env | xargs) && mvn spring-boot:run
+**`SECRET_KEY` must be set.** If it is missing or weak, session cookies can be forged. Generate it with `secrets.token_hex(32)` and never commit it.
+
+**The redirect URI must match exactly.** If the URI registered in Google Cloud Console does not match what the backend sends, Google rejects the login with `redirect_uri_mismatch`. For local dev it must be:
+```
+http://localhost:8080/auth/google/callback
 ```
 
-**The redirect URI must match exactly.** If the URI registered in Google Cloud Console does not match what Spring sends, Google will reject the login with a `redirect_uri_mismatch` error. The correct URI for local dev is:
-```
-http://localhost:8080/login/oauth2/code/google
-```
+**`COOKIE_SECURE=false` for local dev.** The session cookie's `secure` flag must be false over plain HTTP. Set it to `true` in production (HTTPS only).
 
-**CORS is configured for the frontend origin.** The `MEMORYOS_CORS_ALLOWED_ORIGINS` variable must include the frontend URL (`http://localhost:3000` locally). Session cookies require `allowCredentials: true`, which is already set.
+**The session cookie is `HttpOnly` by default in Starlette.** The frontend cannot read it via JavaScript. It is sent automatically by the browser on every request to the backend.
 
-**Cookies are not secure in local dev.** `MEMORYOS_COOKIE_SECURE=false` is correct for `http://localhost`. Set it to `true` in production (which runs over HTTPS).
-
-**The `JSESSIONID` cookie is `HttpOnly`.** The frontend cannot read it via JavaScript, which is intentional. It is sent automatically with every request by the browser.
+**CORS must allow credentials.** The `CORSMiddleware` is configured with `allow_credentials=True`. Without this, the browser will not send the session cookie on cross-origin requests from `localhost:3000` to `localhost:8080`.

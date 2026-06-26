@@ -35,10 +35,10 @@ docker exec memoryos-postgres pg_isready -U memoryos -d memoryos
 
 ## What is planned for production
 
-- Containerised Spring Boot backend (Dockerfile to be added).
+- Containerised Python backend (Dockerfile to be added).
 - Managed PostgreSQL (AWS RDS, Supabase, or similar).
 - Frontend on Vercel or containerised Next.js.
-- Secret management via cloud provider (AWS Secrets Manager or environment variables in the deployment platform).
-- Health checks wired to the Spring Boot Actuator endpoint at `/actuator/health`.
+- Secret management via cloud provider (AWS Secrets Manager or platform environment variables).
+- Health checks wired to the FastAPI `/health` endpoint.
 
 None of this is implemented yet. Add it when deployment requirements become concrete.

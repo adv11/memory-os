@@ -6,9 +6,11 @@ This file covers the full system design for MemoryOS — why it is built this wa
 
 ## Decision: why this stack
 
-MemoryOS uses a modular monolith backend (Spring Boot) with a separate frontend (Next.js), a relational database (PostgreSQL), and Google Drive for file storage.
+MemoryOS uses a Python/FastAPI backend, a Next.js frontend, PostgreSQL, and Google Drive for file storage.
 
-Why this and not something more complex:
+Why Python: the roadmap includes RAG, LLMs, and agentic AI workflows. Python has the best ecosystem for all of these. FastAPI is async-first, performant, and generates OpenAPI docs automatically.
+
+Why not something more complex:
 
 - We need to validate the product before investing in infrastructure. A monolith ships faster.
 - PostgreSQL handles the knowledge graph in V1. No graph database needed until relational queries prove insufficient.
@@ -25,7 +27,7 @@ The rule: do not add Neo4j, vector databases, Kafka, Redis, or any AI pipeline u
 ```mermaid
 flowchart LR
   User["User"] --> Web["Next.js Web App"]
-  Web --> API["Spring Boot API"]
+  Web --> API["FastAPI Backend"]
   API --> DB[("PostgreSQL")]
   API --> Google["Google OAuth"]
   API --> Drive["Google Drive API"]
@@ -36,7 +38,7 @@ flowchart LR
 **Components:**
 
 - Next.js web app — what the user interacts with in the browser.
-- Spring Boot API — all business logic, auth, data access.
+- FastAPI backend — all business logic, auth, data access.
 - PostgreSQL — single source of truth for all data.
 - Google OAuth — handles login and issues tokens for Drive.
 - Google Drive API — stores user-uploaded files. MemoryOS only stores the file ID and metadata.
@@ -46,10 +48,10 @@ flowchart LR
 
 ## Backend domain structure
 
-Each feature lives in its own package. Every package has the same internal layers.
+Each feature lives in its own folder. Every folder has the same internal files.
 
 ```
-com.memoryos/
+app/
   identity/     — user profile, Google login provisioning
   topics/       — topic CRUD (Phase 2)
   sessions/     — learning session CRUD (Phase 3)
@@ -58,28 +60,29 @@ com.memoryos/
   concepts/     — concept CRUD (Phase 5)
   graph/        — knowledge graph projection (Phase 6)
   dashboard/    — aggregate metrics (Phase 7)
-  common/       — security config, error handling, API path constants
+  common/       — config, error handling
+  db/           — SQLAlchemy engine and session factory
 ```
 
-**Layers inside each package:**
+**Files inside each domain folder:**
 
-- `controller/` — HTTP boundary. Validates input, maps to service calls, returns DTOs.
-- `service/` — business logic. Ownership checks, rules, orchestration.
-- `repository/` — database access only. Extends JpaRepository.
-- `entity/` — maps directly to a database table.
-- `dto/` — request and response shapes. Never expose an entity directly.
+- `model.py` — SQLAlchemy model, maps 1:1 to the database table.
+- `repository.py` — all DB queries, async functions only, no business logic.
+- `schemas.py` — Pydantic request and response models.
+- `router.py` — FastAPI router, request validation, calls repository, returns schemas.
 
 **Authorization rule — never skip this:**
 
-Every service method that reads or writes data must verify it belongs to the authenticated user.
+Every repository or router function that reads or writes data must verify it belongs to the authenticated user.
 
-```java
-// Correct
-Topic topic = topicRepository.findByIdAndUserId(topicId, currentUser.getId())
-    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+```python
+# Correct — scoped to user
+topic = await repository.find_by_id_and_user(db, topic_id, current_user.id)
+if not topic:
+    raise HTTPException(status_code=404)
 
-// Wrong — leaks other users' data
-Topic topic = topicRepository.findById(topicId).orElseThrow(...);
+# Wrong — leaks other users' data
+topic = await repository.find_by_id(db, topic_id)
 ```
 
 ---
@@ -105,7 +108,7 @@ Rules:
 
 ## Validation rules
 
-These are enforced at the service layer:
+These are enforced at the router/service layer:
 
 - Difficulty must be an integer from 1 to 10.
 - Topic name is required and must be unique per user (case-insensitive).
@@ -119,10 +122,11 @@ These are enforced at the service layer:
 
 Every environment (including local) should have:
 
-- Health endpoint: `GET /actuator/health`
+- Health endpoint: `GET /health`
+- Auto-generated OpenAPI docs: `GET /docs` (FastAPI built-in)
 - Structured error responses using the standard format (see `docs/architecture/api.md`)
-- Authentication failure logs that do not leak secrets
-- A generic exception handler so unhandled errors return JSON, not HTML
+- Authentication failure returns 401 without leaking session details
+- A generic exception handler so unhandled errors return JSON, not a traceback
 
 Production will also need structured JSON logs and request correlation IDs (planned, not yet implemented).
 
@@ -131,7 +135,7 @@ Production will also need structured JSON logs and request correlation IDs (plan
 ## Deployment plan (future)
 
 - Frontend: Vercel or containerised Next.js
-- Backend: containerised Spring Boot on AWS ECS, Cloud Run, or Fly.io
+- Backend: containerised Python/FastAPI on AWS ECS, Cloud Run, or Fly.io
 - Database: managed PostgreSQL (AWS RDS, Supabase, or similar)
 - Secrets: cloud secret manager or platform environment variables
 
@@ -147,12 +151,12 @@ Start with stateless backend instances, connection pooling, and indexed queries.
 sequenceDiagram
   actor User
   participant Web as Next.js
-  participant API as Spring Boot
+  participant API as FastAPI
   participant Google as Google OAuth
   participant DB as PostgreSQL
 
   User->>Web: Click "Continue with Google"
-  Web->>API: GET /login/oauth2/authorization/google
+  Web->>API: GET /auth/google
   API->>Google: Redirect to consent screen
   Google->>API: Callback with auth code
   API->>Google: Exchange code for tokens + fetch profile
@@ -259,7 +263,7 @@ MemoryOS/
 **Failure handling:**
 - Drive upload fails → do not create metadata. Return error to frontend.
 - Metadata save fails after Drive upload → log the orphaned Drive file ID for manual cleanup.
-- Never expose OAuth refresh tokens to the frontend.
+- Never expose OAuth tokens to the frontend.
 
 ---
 

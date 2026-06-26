@@ -16,7 +16,7 @@ It is not a general note-taking app. The goal is an AI-powered memory operating 
 
 ## Words used in this project
 
-**Topic** — a broad learning area a user is studying. Examples: DSA, System Design, Spring Boot, Machine Learning.
+**Topic** — a broad learning area a user is studying. Examples: DSA, System Design, FastAPI, Machine Learning.
 
 **Learning Session** — a record of what a user learned on a specific day under a topic. It has a title, description, difficulty score (1–10), date, resources, and concepts.
 
@@ -37,23 +37,25 @@ It is not a general note-taking app. The goal is an AI-powered memory operating 
 | Layer | Technology |
 |---|---|
 | Frontend | Next.js, TypeScript, Tailwind CSS |
-| Backend | Spring Boot 3.x, Java 25, Spring Security |
-| Auth | Google OAuth2 (Spring Security OAuth2 Login) |
-| Database | PostgreSQL 16, Flyway migrations |
+| Backend | Python 3.9+, FastAPI, SQLAlchemy 2.0 async |
+| Auth | Google OAuth2 (Authlib + Starlette sessions) |
+| Database | PostgreSQL 16, Alembic migrations |
 | File storage | Google Drive API (Phase 4) |
 | Graph UI | React Flow (Phase 6) |
+
+Why Python: the roadmap includes RAG, LLMs, and agentic AI workflows. Python has the best ecosystem for all of these. FastAPI is async-first, performant, and generates OpenAPI docs automatically.
 
 ---
 
 ## What is built right now (Phase 1 complete)
 
-- Google OAuth login. Users sign in with Google, no passwords.
+- Google OAuth login via FastAPI + Authlib. Users sign in with Google, no passwords.
 - On first login, a user record is created in PostgreSQL (`app_user` table).
 - On subsequent logins, the profile (email, name) is updated if changed.
 - `GET /api/v1/me` returns the authenticated user's profile.
 - Frontend has a landing page, login button, and a dashboard shell.
 - Local PostgreSQL runs via Docker Compose.
-- Flyway manages all schema migrations. `V1__create_identity.sql` has been applied.
+- Flyway `V1__create_identity.sql` applied — database schema intact. Going forward, Alembic manages new migrations.
 
 ## What is NOT built yet
 
@@ -63,7 +65,7 @@ It is not a general note-taking app. The goal is an AI-powered memory operating 
 - Concept management (Phase 5)
 - Knowledge graph visualization (Phase 6)
 - Dashboard metrics (Phase 7)
-- AI revision engine (future)
+- AI revision engine, RAG, LLM integration (future)
 
 ---
 
@@ -72,40 +74,40 @@ It is not a general note-taking app. The goal is an AI-powered memory operating 
 ```
 memory-os/
   apps/
-    frontend/          Next.js web app
+    frontend/            Next.js web app
   services/
-    backend/           Spring Boot API
+    backend-python/      FastAPI backend (Python)
   infra/
-    docker/            Local PostgreSQL Docker Compose
+    docker/              Local PostgreSQL Docker Compose
   docs/
-    architecture/      System design and API contracts (start with architecture.md)
-    adr/               Architecture Decision Records
-    explainers/        Deep-dive feature explainers
-    project/           Setup guide, progress log, todo list
+    architecture/        System design and API contracts
+    adr/                 Architecture Decision Records
+    explainers/          Deep-dive feature explainers
+    project/             Setup guide, progress log, todo list
   .amazonq/
-    rules/             Instructions for AI agents
+    rules/               Instructions for AI agents
 ```
 
 ---
 
-## Backend package structure
+## Backend structure
 
 ```
-com.memoryos/
-  MemoryOsApplication.java
+services/backend-python/app/
+  main.py              FastAPI app — middleware, exception handlers, routers
   common/
-    api/          ApiPaths.java            — all API path constants live here
-    error/        GlobalExceptionHandler, ApiErrorResponse
-    security/     SecurityConfig, CorsProperties, WebProperties
+    config.py          All env vars via pydantic-settings
+    errors.py          Error response format and exception handlers
+  db/
+    session.py         Async SQLAlchemy engine and session factory
   identity/
-    controller/   MeController             — GET /api/v1/me
-    service/      AuthenticatedUserService, OAuthUserProvisioningService
-    repository/   AppUserRepository
-    entity/       AppUser
-    dto/          CurrentUserResponse
+    model.py           AppUser SQLAlchemy model (maps to app_user table)
+    repository.py      All DB queries for app_user
+    schemas.py         Pydantic request/response models
+    router.py          Auth routes + GET /api/v1/me
 ```
 
-Each future domain (topics, sessions, resources, concepts, graph, dashboard) adds one package following the same `controller / service / repository / entity / dto` structure.
+Each future domain (topics, sessions, resources, concepts, graph, dashboard) adds one folder with the same `model / repository / schemas / router` structure.
 
 ---
 
@@ -122,11 +124,11 @@ app_user (
 )
 ```
 
-Migrations live in: `services/backend/src/main/resources/db/migration/`
+Migrations live in: `services/backend-python/migrations/` (Alembic)
 
-Flyway runs them automatically on startup. Naming format: `V{number}__{description}.sql`
+The initial `app_user` table was created by `V1__create_identity.sql`. Going forward, Alembic manages all new migrations.
 
-To see which migrations have run:
+To inspect the schema:
 ```bash
 docker exec -it memoryos-postgres psql -U memoryos -d memoryos -c "SELECT * FROM flyway_schema_history;"
 ```
@@ -142,9 +144,11 @@ Quick version:
 # 1. Start PostgreSQL
 docker compose -f infra/docker/docker-compose.local.yml up -d
 
-# 2. Set up and run backend (fill in Google credentials in .env first)
-cp services/backend/.env.example services/backend/.env
-cd services/backend && export $(cat .env | xargs) && mvn spring-boot:run
+# 2. Set up and run backend
+cp services/backend-python/.env.example services/backend-python/.env
+# Fill in GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, SECRET_KEY
+cd services/backend-python && python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt && python run.py
 
 # 3. Run frontend (separate terminal)
 cd apps/frontend && npm install && npm run dev
@@ -158,10 +162,11 @@ cd apps/frontend && npm install && npm run dev
 |---|---|
 | http://localhost:3000 | Frontend landing page |
 | http://localhost:3000/dashboard | Dashboard (requires login) |
-| http://localhost:8080/login/oauth2/authorization/google | Starts Google login |
+| http://localhost:8080/auth/google | Starts Google login |
 | http://localhost:8080/api/v1/me | Returns current user JSON |
-| http://localhost:8080/actuator/health | Backend health check |
+| http://localhost:8080/health | Backend health check |
 | http://localhost:8080/logout | Logs out |
+| http://localhost:8080/docs | FastAPI auto-generated OpenAPI docs |
 
 ---
 
@@ -171,7 +176,6 @@ cd apps/frontend && npm install && npm run dev
 |---|---|
 | Full system design, flows, diagrams | `docs/architecture/architecture.md` |
 | All API endpoints with request/response shapes | `docs/architecture/api.md` |
-| Database tables and relationships | `docs/architecture/architecture.md` (sequence flows section) |
 | How a specific feature works in depth | `docs/explainers/` |
 | What to build next | `docs/project/todo.md` |
 | What has been built and key decisions | `docs/project/progress.md` |

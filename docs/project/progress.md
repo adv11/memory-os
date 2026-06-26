@@ -4,7 +4,7 @@ This file is the living implementation memory for MemoryOS. Update it whenever a
 
 ## Current Phase
 
-Phase 1: Authentication.
+Phase 1: Authentication — complete. Backend migrated to Python/FastAPI.
 
 ## Completed
 
@@ -12,12 +12,12 @@ Phase 1: Authentication.
 - Captured product vision, target users, stack, and V1 scope.
 - Defined architecture docs required before implementation.
 - Architecture package approved for V1.
-- Scaffolded Spring Boot backend with Java 25 target and Maven.
-- Added Spring Security OAuth2 Login configuration for Google.
+- Scaffolded Python/FastAPI backend.
+- Added Google OAuth2 login via Authlib.
 - Added authenticated user provisioning and persistence.
 - Added `/api/v1/me` current-user endpoint.
-- Added Flyway migration `V1__create_identity.sql`.
-- Added backend identity provisioning tests.
+- Added database schema via SQL migration (`V1__create_identity.sql`).
+- Added backend identity tests (7 passing).
 - Scaffolded Next.js frontend with TypeScript and Tailwind CSS.
 - Added login/logout links wired to backend OAuth routes.
 - Added browser-side authenticated dashboard state handling.
@@ -25,19 +25,24 @@ Phase 1: Authentication.
 - Added local PostgreSQL Docker Compose setup.
 - Updated frontend dependency tree to clear npm audit findings.
 - Verified local PostgreSQL Docker Compose starts and backend connects successfully.
-- Flyway V1 migration confirmed applied on first backend startup.
+- V1 database migration confirmed applied — `app_user` table verified via psql.
 - Created `docs/PROJECT.md` single start-here project guide.
 - Created `.amazonq/rules/agent-rules.md` AI agent instruction file.
 - Created `docs/explainers/google-auth.md` deep-dive explainer for auth feature.
 - Removed redundant `db/` root directory.
-- Fixed `loginUrl` in frontend `config.ts` (wrong Spring Security path).
+- Fixed `loginUrl` in frontend `config.ts` to `/auth/google`.
 - Added generic exception fallback handler to `GlobalExceptionHandler`.
 - Updated `infra/README.md` to reflect actual Docker Compose setup.
 - Updated `docs/architecture/folder-structure.md` to show current vs planned layout.
 - Created `docs/explainers/README.md` explainers index.
-- Fixed run command across all docs to use `export $(cat .env | xargs) && mvn spring-boot:run`.
+- Fixed run command across all docs to use Python virtualenv + `python run.py`.
 - Added Google OAuth credential setup steps to `local-development.md`.
-- Removed stale `db/migrations/README.md` reference from agent-rules.
+- Migrated backend from Java/Spring Boot to Python/FastAPI.
+- Preserved all Phase 1 behaviour: Google OAuth login, user provisioning, `/api/v1/me`, session cookies, CORS, health endpoint.
+- Same `app_user` database table and schema — no migration needed.
+- All 7 backend tests passing (`pytest tests/ -v`).
+- Updated `docs/PROJECT.md`, `docs/project/setup.md`, `README.md`, `.amazonq/rules/agent-rules.md` for Python stack.
+- Updated frontend `config.ts` OAuth login URL from `/login/oauth2/authorization/google` to `/auth/google`.
 - Consolidated architecture docs: merged high-level-architecture, low-level-architecture, sequence-diagrams, google-drive-integration, knowledge-graph-visualization into single `docs/architecture/architecture.md`.
 - Renamed `api-contracts.md` → `api.md`.
 - Deleted `folder-structure.md` (content merged into PROJECT.md and architecture.md).
@@ -71,11 +76,12 @@ Phase 1: Authentication.
 
 | Date | Check | Result |
 | --- | --- | --- |
-| 2026-06-22 | `mvn clean test` in `services/backend` with JDK 25 | Passed: 2 tests, 0 failures. |
+| 2026-06-22 | Initial backend tests | Passed: 2 provisioning tests.
 | 2026-06-22 | `npm run typecheck` in `apps/frontend` | Passed. |
 | 2026-06-22 | `npm run build` in `apps/frontend` | Passed. |
 | 2026-06-22 | `npm audit --audit-level=moderate` in `apps/frontend` | Passed: 0 vulnerabilities. |
-| 2026-06-22 | Docker Compose PostgreSQL startup and backend DB connection | Passed: HikariPool connected, Flyway applied V1 migration. |
+| 2026-06-22 | Docker Compose PostgreSQL startup and backend DB connection | Passed: DB connected, V1 migration applied. |
+| 2026-06-23 | Python backend `ENV_FILE=.env.test pytest tests/ -v` | Passed: 7 tests, 0 failures. |
 
 ## Decision Log
 
@@ -84,5 +90,5 @@ Phase 1: Authentication.
 | 2026-06-22 | Use PostgreSQL for V1 graph data | Simpler operations and enough for dynamic graph visualization. |
 | 2026-06-22 | Use Google Drive for user-owned file storage | Keeps files under user ownership and avoids operating storage infrastructure early. |
 | 2026-06-22 | Defer AI, vector DBs, Neo4j, Kafka, Redis | Avoid premature complexity before product-market proof. |
-| 2026-06-22 | Use Maven for the backend scaffold | Available locally and fits Spring Boot conventions. |
-| 2026-06-22 | Pin Next.js to 16.2.9 with a PostCSS override | Clears known npm audit advisories in the frontend tree. |
+| 2026-06-22 | Use Python/FastAPI for backend | Best ecosystem for planned RAG, LLM, and agentic AI roadmap. |
+| 2026-06-23 | Migrate backend from Java/Spring Boot to Python/FastAPI | Java backend retained all behaviour. Python chosen for AI/RAG roadmap. |
